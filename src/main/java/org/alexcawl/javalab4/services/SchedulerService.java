@@ -87,9 +87,7 @@ public class SchedulerService {
         Optional<WebResource> resourceOptional = webResourceRepository.findByURL(task.getURL());
         if (resourceOptional.isPresent()) {
             WebResource resource = resourceOptional.get();
-            if (isDateValidInHours(resource.getLastUpdated(), new Date(), expirationDate)) {
-                loadFromStorage(resource.getPath(), task.getDepthLimit());
-            } else {
+            if (!isDateValidInHours(resource.getLastUpdated(), new Date(), expirationDate)) {
                 loadFromURL(task.getURL(), task.getDepthLimit());
             }
         } else {
@@ -109,7 +107,10 @@ public class SchedulerService {
      * O(1) + O(1) + O(n^2) = O(n^2)
      * */
     private void loadFromURL(String url, Integer depth) throws URISyntaxException, FileNotCreatedException, IOException {
-        Document document = Jsoup.connect(url).followRedirects(false).get();
+        Document document = Jsoup.connect(url)
+                .followRedirects(false)
+                .userAgent("Mozilla/5.0 (X11; Linux x86_64; rv:105.0) Gecko/20100101 Firefox/105.0")
+                .get();
         String uri = document.baseUri();
         String ID = Hashing.sha256().hashString(uri, StandardCharsets.UTF_8).toString();
         String domain = new URI(uri).getHost();
@@ -124,15 +125,9 @@ public class SchedulerService {
     /**
      * O(n^2)
      * */
-    private void saveNewNodes(Iterable<String> nodes, Integer depth) {
+    private void saveNewNodes(Set<String> nodes, Integer depth) {
         for (String node: nodes) {
-            Optional<WebResource> resourceOptional = webResourceRepository.findByURL(node);
-            if (resourceOptional.isPresent()) {
-                WebResource resource = resourceOptional.get();
-                if (!isDateValidInHours(resource.getLastUpdated(), new Date(), expirationDate)) {
-                    taskRepository.save(new Task(node, depth - 1));
-                }
-            } else {
+            if (!taskRepository.existsByURL(node)) {
                 taskRepository.save(new Task(node, depth - 1));
             }
         }
