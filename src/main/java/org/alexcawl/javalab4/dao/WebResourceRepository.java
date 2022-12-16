@@ -8,4 +8,5 @@ import java.util.Optional;
 @Repository
 public interface WebResourceRepository extends JpaRepository<WebResource, String> {
     Optional<WebResource> findByURL(String URL);
+    Boolean existsByURL(String URL);
 }

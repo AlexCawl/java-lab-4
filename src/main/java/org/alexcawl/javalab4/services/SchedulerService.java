@@ -35,7 +35,7 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @Service
-public class SearchingService {
+public class SchedulerService {
     @Autowired
     private TaskRepository taskRepository;
 
