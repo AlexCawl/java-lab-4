@@ -54,6 +54,7 @@ public class SchedulerService {
     /**
      * Main @Scheduled method.
      * Takes a task from the taskRepository and processes it.
+     * O(n^2)
      * */
     @Scheduled(fixedRate = 1)
     public void process() {
@@ -80,7 +81,7 @@ public class SchedulerService {
     }
 
     /**
-     *
+     * O(n) + O(n^2)
      * */
     public void search(Task task) throws IOException, URISyntaxException, FileNotCreatedException {
         Optional<WebResource> resourceOptional = webResourceRepository.findByURL(task.getURL());
@@ -97,7 +98,7 @@ public class SchedulerService {
     }
 
     /**
-     *
+     * O(n^2)
      * */
     private void loadFromStorage(String path, Integer depth) throws IOException, URISyntaxException {
         Document document = Jsoup.parse(new File(path), StandardCharsets.UTF_8.name());
@@ -105,7 +106,7 @@ public class SchedulerService {
     }
 
     /**
-     *
+     * O(1) + O(1) + O(n^2) = O(n^2)
      * */
     private void loadFromURL(String url, Integer depth) throws URISyntaxException, FileNotCreatedException, IOException {
         Document document = Jsoup.connect(url).followRedirects(false).get();
@@ -121,16 +122,24 @@ public class SchedulerService {
     }
 
     /**
-     *
+     * O(n^2)
      * */
     private void saveNewNodes(Iterable<String> nodes, Integer depth) {
         for (String node: nodes) {
-            taskRepository.save(new Task(node, depth - 1));
+            Optional<WebResource> resourceOptional = webResourceRepository.findByURL(node);
+            if (resourceOptional.isPresent()) {
+                WebResource resource = resourceOptional.get();
+                if (!isDateValidInHours(resource.getLastUpdated(), new Date(), expirationDate)) {
+                    taskRepository.save(new Task(node, depth - 1));
+                }
+            } else {
+                taskRepository.save(new Task(node, depth - 1));
+            }
         }
     }
 
     /**
-     *
+     * O(1)
      * */
     private void validateTaskDepth(Task task) throws TaskValidationException {
         if (task.getDepthLimit() < 0) {
@@ -139,7 +148,7 @@ public class SchedulerService {
     }
 
     /**
-     *
+     * O(1)
      * */
     private void uploadAsFile(Document document, String path, String name) throws FileNotCreatedException {
         try {
@@ -153,7 +162,7 @@ public class SchedulerService {
     }
 
     /**
-     *
+     * O(n^2)
      * */
     public static Set<String> findNewNodes(Document document) throws URISyntaxException, MalformedURLException {
         String domainName = getDomainName(document.baseUri());
@@ -170,12 +179,15 @@ public class SchedulerService {
                 .collect(Collectors.toSet());
     }
 
+    /**
+     * O(1)
+     * */
     public static String getDomainName(String url) throws URISyntaxException, NullPointerException, MalformedURLException {
         return new URI(url).getHost();
     }
 
     /**
-     *
+     * O(n)
      * */
     public static String constructPathFromID(String basePath, String ID, int partLength) {
         String [] array = new String [ID.length() / partLength + (ID.length() % partLength == 0 ? 0 : 1)];
@@ -203,6 +215,9 @@ public class SchedulerService {
         return basePath + "/" + String.join("/", array);
     }
 
+    /**
+     * O(1)
+     * */
     public static Boolean isDateValidInHours(Date dateWas, Date dateNow, Long differenceInHours) {
         long difference = dateNow.getTime() - dateWas.getTime();
         return TimeUnit.MILLISECONDS.toHours(difference) <= differenceInHours;
