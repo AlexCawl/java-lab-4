@@ -14,16 +14,15 @@ import org.jsoup.nodes.Document;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.io.BufferedWriter;
+import java.io.File;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -31,6 +30,7 @@ import java.nio.file.Paths;
 import java.util.Date;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -42,11 +42,14 @@ public class SearchingService {
     @Autowired
     private WebResourceRepository webResourceRepository;
 
-    @Value("${resources.path}")
+    @Value("${configuration.data.path}")
     private String resourcePath;
 
-    @Value("${resources.expiration}")
+    @Value("${configuration.data.expires-in-hours}")
     private Long expirationDate;
+
+    @Value("${configuration.data.token-size}")
+    private Integer tokenSize;
 
     /**
      * Main @Scheduled method.
@@ -54,26 +57,25 @@ public class SearchingService {
      * */
     @Scheduled(fixedRate = 1)
     public void process() {
+        String url = null;
         try {
             Task task = taskRepository.findAll()
                     .stream()
                     .findAny()
                     .orElseThrow(EmptyTaskTableException::new);
             taskRepository.delete(task);
-            validateTask(task);
+            url = task.getURL();
+            validateTaskDepth(task);
             search(task);
-        } catch (EmptyTaskTableException | TaskValidationException ignored) {
+        } catch (EmptyTaskTableException | TaskValidationException | DataIntegrityViolationException ignored) {
         } catch (IOException exception) {
-            //log.warn("Page is not available!");
+            log.warn(String.format("Page is not available! %s", url));
         } catch (URISyntaxException exception) {
-            log.warn("Invalid URL!");
+            log.warn(String.format("Invalid URL! %s", url));
         } catch (FileNotCreatedException exception) {
-            log.warn("File not created!");
-        } catch (DataIntegrityViolationException exception) {
-            //log.warn("Already exists!");
+            log.error(String.format("File not created! %s", url));
         } catch (Exception exception) {
-            //exception.printStackTrace();
-            log.error("Something gone very bad!");
+            log.error(String.format("Something gone very bad! %s", url));
         }
     }
 
@@ -84,29 +86,44 @@ public class SearchingService {
         Optional<WebResource> resourceOptional = webResourceRepository.findByURL(task.getURL());
         if (resourceOptional.isPresent()) {
             WebResource resource = resourceOptional.get();
-            /*
-            * сделать анализ страницы из внутреннего хранилища и запись новых нодов оттуда
-            * */
+            if (isDateValidInHours(resource.getLastUpdated(), new Date(), expirationDate)) {
+                loadFromStorage(resource.getPath(), task.getDepthLimit());
+            } else {
+                loadFromURL(task.getURL(), task.getDepthLimit());
+            }
         } else {
-            load(task.getURL(), task.getDepthLimit());
+            loadFromURL(task.getURL(), task.getDepthLimit());
         }
     }
 
     /**
      *
      * */
-    private void load(String url, Integer depth) throws URISyntaxException, FileNotCreatedException, IOException {
+    private void loadFromStorage(String path, Integer depth) throws IOException, URISyntaxException {
+        Document document = Jsoup.parse(new File(path), StandardCharsets.UTF_8.name());
+        saveNewNodes(findNewNodes(document), depth);
+    }
+
+    /**
+     *
+     * */
+    private void loadFromURL(String url, Integer depth) throws URISyntaxException, FileNotCreatedException, IOException {
         Document document = Jsoup.connect(url).followRedirects(false).get();
         String uri = document.baseUri();
         String ID = Hashing.sha256().hashString(uri, StandardCharsets.UTF_8).toString();
         String domain = new URI(uri).getHost();
-        String path = constructPathFromID(resourcePath, ID, 8);
+        String path = constructPathFromID(resourcePath, ID, tokenSize);
         Date date = new Date();
 
         uploadAsFile(document, path, ID);
-        Set<String> nodes = findNewNodes(document);
         webResourceRepository.save(new WebResource(ID, uri, domain, path, date));
+        saveNewNodes(findNewNodes(document), depth);
+    }
 
+    /**
+     *
+     * */
+    private void saveNewNodes(Iterable<String> nodes, Integer depth) {
         for (String node: nodes) {
             taskRepository.save(new Task(node, depth - 1));
         }
@@ -115,7 +132,7 @@ public class SearchingService {
     /**
      *
      * */
-    public void validateTask(Task task) throws TaskValidationException {
+    private void validateTaskDepth(Task task) throws TaskValidationException {
         if (task.getDepthLimit() < 0) {
             throw new TaskValidationException();
         }
@@ -138,7 +155,7 @@ public class SearchingService {
     /**
      *
      * */
-    private Set<String> findNewNodes(Document document) throws URISyntaxException, MalformedURLException {
+    public static Set<String> findNewNodes(Document document) throws URISyntaxException, MalformedURLException {
         String domainName = getDomainName(document.baseUri());
         return document.select("a[href]")
                 .stream()
@@ -153,14 +170,14 @@ public class SearchingService {
                 .collect(Collectors.toSet());
     }
 
-    private String getDomainName(String url) throws URISyntaxException, NullPointerException, MalformedURLException {
+    public static String getDomainName(String url) throws URISyntaxException, NullPointerException, MalformedURLException {
         return new URI(url).getHost();
     }
 
     /**
      *
      * */
-    private static String constructPathFromID(String basePath, String ID, int partLength) {
+    public static String constructPathFromID(String basePath, String ID, int partLength) {
         String [] array = new String [ID.length() / partLength + (ID.length() % partLength == 0 ? 0 : 1)];
 
         StringBuilder token = new StringBuilder();
@@ -184,5 +201,10 @@ public class SearchingService {
         }
 
         return basePath + "/" + String.join("/", array);
+    }
+
+    public static Boolean isDateValidInHours(Date dateWas, Date dateNow, Long differenceInHours) {
+        long difference = dateNow.getTime() - dateWas.getTime();
+        return TimeUnit.MILLISECONDS.toHours(difference) <= differenceInHours;
     }
 }
