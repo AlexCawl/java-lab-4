@@ -6,7 +6,7 @@ import org.springframework.stereotype.Repository;
 import java.util.Optional;
 
 @Repository
-public interface WebResourceRepository extends JpaRepository<WebResource, String> {
-    Optional<WebResource> findByURL(String URL);
+public interface ResourceRepository extends JpaRepository<Resource, String> {
+    Optional<Resource> findByURL(String URL);
     Boolean existsByURL(String URL);
 }

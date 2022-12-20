@@ -1,4 +1,4 @@
-package org.alexcawl.javalab4.models.exceptions;
+package org.alexcawl.javalab4.model.exception;
 
 public class EmptyTaskTableException extends Exception {
 }

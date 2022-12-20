@@ -1,7 +1,5 @@
 package org.alexcawl.javalab4.dao;
 
-
-import com.google.common.hash.Hashing;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -10,15 +8,14 @@ import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.Id;
 import javax.persistence.Table;
-import java.nio.charset.StandardCharsets;
-
+import java.util.Date;
 
 @Entity
-@Table(name = "tasks")
+@Table(name = "logs")
 @AllArgsConstructor
 @NoArgsConstructor
 @Data
-public class Task {
+public class Log {
     @Id
     @Column(name = "hash", unique = true)
     private String ID;
@@ -29,9 +26,13 @@ public class Task {
     @Column(name = "depth_limit")
     private Integer depthLimit;
 
-    public Task(String URL, Integer depthLimit) {
-        this.ID = Hashing.sha256().hashString(URL, StandardCharsets.UTF_8).toString();
+    @Column(name = "last_update")
+    private Date lastUpdate;
+
+    public Log(String ID, String URL, Integer depthLimit) {
+        this.ID = ID;
         this.URL = URL;
         this.depthLimit = depthLimit;
+        this.lastUpdate = new Date();
     }
 }
