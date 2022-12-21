@@ -54,6 +54,7 @@ public class SchedulerService {
     @Scheduled(fixedRate = 1)
     public void process() {
         try {
+            Date date = new Date();
             Task task = taskRepository.findAll()
                     .stream()
                     .findAny()
@@ -70,6 +71,7 @@ public class SchedulerService {
                 exception.printStackTrace();
                 log.error(String.format("Something gone very bad! %s", task.getURL()));
             }
+            System.out.println("PROCESSING " + task.getURL() + " " + (new Date().getTime() - date.getTime()));
         } catch (EmptyTaskTableException ignored) {
         }
     }
@@ -108,10 +110,12 @@ public class SchedulerService {
             String domain = new URI(url).getHost();
 
             try {
+                Date date = new Date();
                 Document document = Jsoup.connect(url)
                         .followRedirects(false)
                         .userAgent("Mozilla/5.0 (X11; Linux x86_64; rv:105.0) Gecko/20100101 Firefox/105.0")
                         .get();
+                System.out.println("LOADING " + url + " " + (new Date().getTime() - date.getTime()));
 
                 /* Переопределяем на случай косяков в ссылке */
                 url = document.baseUri();
