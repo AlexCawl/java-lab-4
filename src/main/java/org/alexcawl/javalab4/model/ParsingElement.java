@@ -1,5 +1,6 @@
 package org.alexcawl.javalab4.model;
 
+import io.swagger.annotations.ApiModelProperty;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -10,7 +11,9 @@ import java.util.Objects;
 @NoArgsConstructor
 @Data
 public class ParsingElement {
+    @ApiModelProperty(notes = "Element content", example = "http://www.balbes.net")
     private String content;
+    @ApiModelProperty(notes = "Element from", example = "http://balbes.com")
     private String from;
 
     @Override

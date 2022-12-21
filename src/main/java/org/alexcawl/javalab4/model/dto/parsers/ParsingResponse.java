@@ -1,5 +1,6 @@
 package org.alexcawl.javalab4.model.dto.parsers;
 
+import io.swagger.annotations.ApiModelProperty;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -14,7 +15,11 @@ import java.util.List;
 @Data
 public class ParsingResponse {
     private List<ParsingElement> resource;
+
+    @ApiModelProperty(notes = "Response code", example = "200")
     private Integer code;
+
+    @ApiModelProperty(notes = "Response message", example = "OK")
     private String message;
 
     public ParsingResponse(Integer code, String message) {

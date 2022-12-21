@@ -6,13 +6,13 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-@ApiModel
 @AllArgsConstructor
 @NoArgsConstructor
 @Data
 public class TaskingResponse {
     @ApiModelProperty(notes = "Response code", example = "200")
     private Integer code;
+
     @ApiModelProperty(notes = "Response message", example = "OK")
     private String message;
 }

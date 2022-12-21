@@ -22,7 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @Slf4j
 @RestController
-@RequestMapping(path = "/v1", name = "Application Controller")
+@RequestMapping(name = "application-controller")
 public class ApplicationController {
     @Autowired
     private TaskingService taskingService;
@@ -55,7 +55,7 @@ public class ApplicationController {
     })
     @RequestMapping(path = "/analyze",
             name = "site-analyzing-method",
-            method = RequestMethod.POST,
+            method = RequestMethod.PUT,
             consumes = "application/json",
             produces = "application/json")
     public ResponseEntity<ScanningResponse> analyze(@RequestBody ScanningRequest options) {
@@ -69,11 +69,10 @@ public class ApplicationController {
     })
     @RequestMapping(path = "/parse",
             name = "site-parsing-method",
-            method = RequestMethod.POST,
+            method = RequestMethod.PUT,
             consumes = "application/json",
             produces = "application/json")
     public ResponseEntity<ParsingResponse> parse(@RequestBody ParsingRequest options) {
-        log.info(options.toString());
         return parsingService.parse(options.getArea(), options.getType(), options.getKey(), options.getLimit());
     }
 }
