@@ -30,6 +30,7 @@ public class Resource {
     @Column(name = "last_updated")
     private Date lastUpdated;
 
+    //FIXME убрать nodes за ненадобностью
     @Column(name = "nodes_count")
     private Integer nodesCount;
 

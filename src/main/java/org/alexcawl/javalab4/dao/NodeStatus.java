@@ -1,6 +1,6 @@
-package org.alexcawl.javalab4.model.stuff;
+package org.alexcawl.javalab4.dao;
 
-public enum Status {
+public enum NodeStatus {
     OK,
     NOT_FOUND,      // HttpStatusException
     EMPTY_CONTENT,  // <body></body>

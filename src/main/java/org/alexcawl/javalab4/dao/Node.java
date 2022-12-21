@@ -3,7 +3,6 @@ package org.alexcawl.javalab4.dao;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.alexcawl.javalab4.model.stuff.Status;
 
 import javax.persistence.Column;
 import javax.persistence.Entity;
@@ -30,19 +29,23 @@ public class Node {
     @Column(name = "node_last_height")
     private Integer height;
 
+    @Column(name = "nesting")
+    private Integer nesting;
+
     @Column(name = "last_update")
     private Date lastUpdate;
 
-    @Column(name = "status")
-    private Status status;
+    @Column(name = "node_status")
+    private NodeStatus nodeStatus;
 
-    public Node(String ID, String URL, String domain, Integer height, Status status) {
+    public Node(String ID, String URL, String domain, Integer height, NodeStatus nodeStatus, Integer nesting) {
         this.ID = ID;
         this.URL = URL;
         this.domain = domain;
         this.height = height;
         this.lastUpdate = new Date();
-        this.status = status;
+        this.nodeStatus = nodeStatus;
+        this.nesting = nesting;
     }
 
     public Node updateDate() {

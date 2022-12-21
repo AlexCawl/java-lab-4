@@ -5,7 +5,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.alexcawl.javalab4.dao.*;
 import org.alexcawl.javalab4.model.exception.EmptyTaskTableException;
 import org.alexcawl.javalab4.model.exception.TaskValidationException;
-import org.alexcawl.javalab4.model.stuff.Status;
 import org.jsoup.HttpStatusException;
 import org.jsoup.Jsoup;
 import org.jsoup.UnsupportedMimeTypeException;
@@ -54,7 +53,6 @@ public class SchedulerService {
     @Scheduled(fixedRate = 1)
     public void process() {
         try {
-            Date date = new Date();
             Task task = taskRepository.findAll()
                     .stream()
                     .findAny()
@@ -71,7 +69,6 @@ public class SchedulerService {
                 exception.printStackTrace();
                 log.error(String.format("Something gone very bad! %s", task.getURL()));
             }
-            System.out.println("PROCESSING " + task.getURL() + " " + (new Date().getTime() - date.getTime()));
         } catch (EmptyTaskTableException ignored) {
         }
     }
@@ -110,13 +107,10 @@ public class SchedulerService {
             String domain = new URI(url).getHost();
 
             try {
-                Date date = new Date();
                 Document document = Jsoup.connect(url)
                         .followRedirects(false)
                         .userAgent("Mozilla/5.0 (X11; Linux x86_64; rv:105.0) Gecko/20100101 Firefox/105.0")
                         .get();
-                System.out.println("LOADING " + url + " " + (new Date().getTime() - date.getTime()));
-
                 /* Переопределяем на случай косяков в ссылке */
                 url = document.baseUri();
                 ID = getHash(url);
@@ -127,11 +121,11 @@ public class SchedulerService {
 
                 if (body.isBlank() || body.equals("<body></body>")) {
                     nodeRepository.save(
-                            new Node(ID, url, domain, depth, Status.EMPTY_CONTENT)
+                            new Node(ID, url, domain, depth, NodeStatus.EMPTY_CONTENT, countNesting(url))
                     );
                 } else {
                     nodeRepository.save(
-                            new Node(ID, url, domain, depth, Status.OK)
+                            new Node(ID, url, domain, depth, NodeStatus.OK, countNesting(url))
                     );
                     resourceRepository.save(
                             new Resource(ID, url, domain, nodes.size(), String.join(" ", nodes))
@@ -147,16 +141,16 @@ public class SchedulerService {
                 writeNewTasks(nodes, depth);
             } catch (HttpStatusException exception) {
                 nodeRepository.save(
-                        new Node(ID, url, domain, depth, Status.NOT_FOUND)
+                        new Node(ID, url, domain, depth, NodeStatus.NOT_FOUND, countNesting(url))
                 );
             } catch (MalformedURLException | DataIntegrityViolationException | UnsupportedMimeTypeException | IllegalArgumentException exception) {
                 nodeRepository.save(
-                        new Node(ID, url, domain, depth, Status.UNABLE_TO_LOAD)
+                        new Node(ID, url, domain, depth, NodeStatus.UNABLE_TO_LOAD, countNesting(url))
                 );
             } catch (IOException exception) {
                 exception.printStackTrace();
                 nodeRepository.save(
-                        new Node(ID, url, domain, depth, Status.ERROR)
+                        new Node(ID, url, domain, depth, NodeStatus.ERROR, countNesting(url))
                 );
             }
         } catch (URISyntaxException exception) {
@@ -248,5 +242,9 @@ public class SchedulerService {
      * */
     public static String getHash(String string) {
         return Hashing.sha256().hashString(string, StandardCharsets.UTF_8).toString();
+    }
+
+    public static Integer countNesting(String url) {
+        return url.split("/").length - 2;
     }
 }
